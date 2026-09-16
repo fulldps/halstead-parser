@@ -317,9 +317,11 @@ class Analyzer {
       this.lineHead = KEYS.match;
       return;
     }
+    // После точки — атрибут или метод объекта: `.qty` и переменная `qty` — разные сущности.
+    const name = isOp(this.prev, '.') ? `.${t.value}` : t.value;
     if (isOp(next, '(')) {
       // Имя функции — оператор (PDF: «имена процедур и функций»), её скобки войдут в него же.
-      this.callName = `${t.value}( )`;
+      this.callName = `${name}( )`;
       this.count(i, 'operator', this.callName);
       return;
     }
@@ -329,7 +331,7 @@ class Analyzer {
       this.set(i, 'ignored', 'имя=значение в вызове');
       return;
     }
-    this.count(i, 'operand', t.value);
+    this.count(i, 'operand', name);
   }
 
   private visitKeyword(i: number): void {

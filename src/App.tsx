@@ -5,6 +5,8 @@ import { MetricsTable } from './components/MetricsTable.tsx';
 import { TokenTable } from './components/TokenTable.tsx';
 import { runAnalysis, type AnalysisResult } from './halstead/index.ts';
 import { SAMPLE } from './sample.ts';
+// ?raw — Vite отдаёт содержимое файла строкой.
+import WAREHOUSE from '../examples/warehouse.py?raw';
 
 interface Analyzed {
   source: string; // какой именно текст посчитан — чтобы заметить, что его потом изменили
@@ -70,6 +72,9 @@ function App() {
             </label>
             <button type="button" className="secondary" onClick={() => setSource(SAMPLE)}>
               Пример из методички
+            </button>
+            <button type="button" className="secondary" onClick={() => setSource(WAREHOUSE)}>
+              Программа из отчёта
             </button>
             <button type="button" className="secondary" onClick={() => setSource('')}>
               Очистить

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { KEYS, runAnalysis } from '../src/halstead/index.ts';
 import { computeMetrics } from '../src/halstead/metrics.ts';
@@ -97,6 +98,32 @@ describe('пример 1, переведённый на Python', () => {
   it('метрики', () => {
     assert.deepEqual([m.eta1, m.eta2, m.N1, m.N2, m.eta, m.N], [15, 9, 39, 31, 24, 70]);
     assert.equal(m.V.toFixed(2), '320.95');
+  });
+});
+
+describe('программа из отчёта (examples/warehouse.py)', () => {
+  const source = readFileSync(new URL('../examples/warehouse.py', import.meta.url), 'utf8');
+  const { metrics: m } = runAnalysis(source);
+
+  // Числа сверены с независимым подсчётом по AST: npm run verify.
+  it('базовые и расширенные метрики', () => {
+    assert.deepEqual([m.eta1, m.eta2, m.N1, m.N2, m.eta, m.N], [90, 101, 327, 273, 191, 600]);
+    assert.equal(m.V.toFixed(2), '4546.46');
+  });
+
+  it('самые частые операторы и операнды', () => {
+    const top = (rows: { name: string; count: number }[]) =>
+      rows.slice(0, 3).map((r) => [r.name, r.count]);
+    assert.deepEqual(top(m.operators), [
+      [KEYS.newline, 73],
+      ['.', 38],
+      ['=', 23],
+    ]);
+    assert.deepEqual(top(m.operands), [
+      ['store', 17],
+      ['sku', 16],
+      ['0', 14],
+    ]);
   });
 });
 

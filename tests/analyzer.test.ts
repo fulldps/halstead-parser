@@ -26,8 +26,13 @@ describe('вызовы и скобки', () => {
   });
 
   it('метод: . и имя метода как оператор', () => {
-    assert.deepEqual(operators('xs.append(1)'), { '.': 1, 'append( )': 1, [NL]: 1 });
+    assert.deepEqual(operators('xs.append(1)'), { '.': 1, '.append( )': 1, [NL]: 1 });
     assert.deepEqual(operands('xs.append(1)'), { xs: 1, '1': 1 });
+  });
+
+  it('атрибут и переменная с тем же именем — разные операнды', () => {
+    assert.deepEqual(operands('self.qty = qty'), { self: 1, '.qty': 1, qty: 1 });
+    assert.deepEqual(operators('math.floor(x)'), { '.': 1, '.floor( )': 1, [NL]: 1 });
   });
 
   it('запятая не учитывается (Writeln (x, y, eps) в PDF)', () => {
