@@ -1,69 +1,47 @@
-# React + TypeScript + Vite
+# Метрики Холстеда для Python
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Лабораторная: программа-парсер с графическим интерфейсом. Разбирает код на Python и считает
+метрики Холстеда по методичке «Метрики размера программ» (пример 1):
 
-Currently, two official plugins are available:
+- **6 базовых** — η1, η2, N1, N2 и таблицы частот f1j, f2i;
+- **3 расширенные** — словарь η = η1 + η2, длина N = N1 + N2, объём V = N·log₂η.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Запуск
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev          # http://localhost:5173
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+В поле уже вставлен пример 1 из методички, переведённый на Python. Кнопка «Рассчитать»
+(или ⌘/Ctrl + Enter) строит таблицу; «Открыть .py» загружает файл. Галочка «Показать разметку
+лексем» показывает, как учтена каждая лексема.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Проверки
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm test             # 62 теста: лексер, правила Таблицы 1, формулы, пример из PDF
+npm run typecheck    # tsc
+npm run lint         # eslint
+npm run build        # typecheck + production-сборка
 ```
+
+## Устройство
+
+```
+текст ─► Lexer ─► analyze ─► computeMetrics ─► UI
+         токены   роли и      η1 η2 N1 N2
+                  частоты     η  N  V
+```
+
+| Файл | Что делает |
+|---|---|
+| `src/halstead/lexer.ts` | текст → токены: имена, ключевые слова, числа, строки, операторы, концы инструкций |
+| `src/halstead/analyzer.ts` | токены → операторы и операнды по Таблице 1 |
+| `src/halstead/metrics.ts` | частоты → 6 базовых и 3 расширенные метрики |
+| `src/halstead/index.ts` | `runAnalysis()` — весь конвейер одной функцией |
+| `src/components/` | таблица базовых метрик, блок расширенных, разметка лексем |
+| `src/App.tsx` | экран: ввод кода, загрузка файла, вывод |
+| `tests/` | тесты на `node:test`, без дополнительных зависимостей |
+
+Модули в `src/halstead/` не зависят от React — это чистые функции, их проверяют тесты.
