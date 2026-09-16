@@ -123,7 +123,7 @@ export class Lexer {
 
   constructor(src: string) {
     // BOM и \r\n убираем заранее, чтобы дальше думать только о '\n'.
-    this.src = src.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+    this.src = src.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
   }
 
   tokenize(): Token[] {
