@@ -22,7 +22,7 @@ npm run dev          # http://localhost:5173
 ## Проверки
 
 ```bash
-npm test             # 65 тестов: лексер, правила Таблицы 1, формулы, пример из PDF
+npm test             # 69 тестов: лексер, правила Таблицы 1, формулы, пример из PDF
 npm run verify       # сверка с независимым подсчётом по AST Python (tools/compare.py)
 npm run typecheck    # tsc
 npm run lint         # eslint

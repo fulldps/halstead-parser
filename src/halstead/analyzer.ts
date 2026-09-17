@@ -55,6 +55,9 @@ interface Header {
 
 const PAIRS: Record<string, string> = { '(': ')', '[': ']', '{': '}' };
 
+// После этих слов скобки вокруг всего заголовка — часть оператора: if (…):, while (…):.
+const HEADER_KEYWORDS = new Set(['if', 'elif', 'while', 'with', 'except']);
+
 const isOp = (t: Token | null | undefined, value: string) => t?.kind === 'op' && t.value === value;
 const isKw = (t: Token | null | undefined, value: string) =>
   t?.kind === 'keyword' && t.value === value;
@@ -232,11 +235,16 @@ class Analyzer {
 
   private openParen(i: number): void {
     const t = this.tokens[i];
+    const owner = this.headerOwner(i);
     if (this.callName !== null) {
       // Скобки вызова входят в оператор «f( )» (как Readln ( ) в PDF) и отдельно не считаются.
       this.stack.push({ kind: 'call', key: this.callName, token: t });
       this.set(i, 'part', this.callName);
       this.callName = null;
+    } else if (owner !== null) {
+      // Скобки, входящие в синтаксис другого оператора, отдельно не считаются.
+      this.stack.push({ kind: 'group', key: owner, token: t });
+      this.set(i, 'part', owner);
     } else if (isOp(this.prev, ')') || isOp(this.prev, ']')) {
       // handlers[0](x), f(x)(y) — вызов результата выражения: имени нет, это просто пара скобок.
       this.stack.push({ kind: 'call', key: KEYS.paren, token: t });
@@ -245,6 +253,38 @@ class Analyzer {
       this.stack.push({ kind: 'group', key: KEYS.paren, token: t });
       this.count(i, 'operator', KEYS.paren);
     }
+  }
+
+  // «(» — часть оператора заголовка, если стоит сразу после if/elif/while/with/except/match/case
+  // и закрывается прямо перед «:» (у except — ещё перед «as»), или открывает список импорта.
+  private headerOwner(i: number): string | null {
+    const prev = this.prev;
+    const owner = this.lineHead;
+    if (prev === null || owner === null) return null;
+    if (isKw(prev, 'import')) return owner === KEYS.fromImport ? owner : null;
+    const softKeyword = prev.kind === 'name' && (prev.value === 'match' || prev.value === 'case');
+    const opens =
+      (prev.kind === 'keyword' && HEADER_KEYWORDS.has(prev.value)) ||
+      (softKeyword && owner === KEYS.match);
+    if (!opens) return null;
+    const close = this.matching(i);
+    if (close === -1) return null;
+    const after = this.peek(close);
+    return isOp(after, ':') || (isKw(prev, 'except') && isKw(after, 'as')) ? owner : null;
+  }
+
+  private matching(i: number): number {
+    let depth = 0;
+    for (let k = i; k < this.tokens.length; k++) {
+      const t = this.tokens[k];
+      if (t.kind !== 'op') continue;
+      if (t.value in PAIRS) depth++;
+      else if (t.value === ')' || t.value === ']' || t.value === '}') {
+        depth--;
+        if (depth === 0) return k;
+      }
+    }
+    return -1;
   }
 
   private close(i: number): Frame {

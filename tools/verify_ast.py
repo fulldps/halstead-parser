@@ -27,9 +27,11 @@ class Halstead:
         self.ops = collections.Counter()
         self.opnds = collections.Counter()
         self.toks = [t for t in tokenize.generate_tokens(io.StringIO(src).readline)
-                     if t.type not in (tokenize.COMMENT, tokenize.NL)]
+                     if t.type not in (tokenize.COMMENT, tokenize.NL,
+                                       tokenize.INDENT, tokenize.DEDENT)]
         self.headers = []          # [(start, end)] — заголовки def/class/lambda
         self.call_parens = set()   # позиции «(» вызовов по имени
+        self.header_parens = set() # «(» вокруг заголовка if/while/with/except/match/case и импорта
 
     def pos(self, line, byte_col):
         raw = self.lines[line - 1].encode('utf-8')
@@ -50,6 +52,30 @@ class Halstead:
     def last_colon_before(self, p):
         return max(t.start for t in self.toks if t.string == ':' and t.start < p)
 
+    def index(self, p):
+        return next(k for k, t in enumerate(self.toks) if t.start == p)
+
+    def closing(self, k):
+        depth = 0
+        for j in range(k, len(self.toks)):
+            t = self.toks[j]
+            if t.type == tokenize.OP and t.string in ('(', '[', '{'):
+                depth += 1
+            elif t.type == tokenize.OP and t.string in (')', ']', '}'):
+                depth -= 1
+                if depth == 0:
+                    return j
+        raise ValueError(k)
+
+    def wrapped(self, kw, stops=(':',)):
+        """kw — индекс служебного слова; скобки сразу после него до «:» — часть оператора."""
+        if self.toks[kw].string == 'async':
+            kw += 1
+        if self.toks[kw + 1].string == '(':
+            close = self.closing(kw + 1)
+            if self.toks[close + 1].string in stops:
+                self.header_parens.add(self.toks[kw + 1].start)
+
     def in_header(self, p):
         return any(a <= p <= b for a, b in self.headers)
 
@@ -59,7 +85,7 @@ class Halstead:
         for t in self.toks:
             if t.type != tokenize.OP or self.in_header(t.start):
                 continue
-            if t.string == '(' and t.start not in self.call_parens:
+            if t.string == '(' and t.start not in self.call_parens | self.header_parens:
                 self.ops['( )'] += 1
             elif t.string == '[':
                 self.ops['[ ]'] += 1
@@ -117,10 +143,13 @@ class Halstead:
                 self.aliases(names)
             case ast.ImportFrom(module=mod, names=names, level=0):
                 self.ops['from…import…as'] += 1
+                self.header_parens |= {t.start for t in self.toks if t.string == '('
+                                       and self.start(s) <= t.start < self.end(s)}
                 self.dotted(mod)
                 self.aliases(names)
             case ast.If(test=t, body=b, orelse=o):
                 self.ops['if…elif…else'] += 1
+                self.wrapped(self.index(self.start(s)))
                 self.expr(t)
                 self.body(b)
                 self.body(o)
@@ -132,6 +161,7 @@ class Halstead:
                 self.body(o)
             case ast.While(test=t, body=b, orelse=o):
                 self.ops['while…else'] += 1
+                self.wrapped(self.index(self.start(s)))
                 self.expr(t)
                 self.body(b)
                 self.body(o)
@@ -139,6 +169,7 @@ class Halstead:
                 self.ops['try…except…finally'] += 1
                 self.body(b)
                 for h in hs:
+                    self.wrapped(self.index(self.start(h)), (':', 'as'))
                     self.expr(h.type)
                     if h.name:
                         self.opnds[h.name] += 1
@@ -147,15 +178,19 @@ class Halstead:
                 self.body(f)
             case ast.With(items=items, body=b):
                 self.ops['with…as'] += 1
+                self.wrapped(self.index(self.start(s)))
                 for it in items:
                     self.expr(it.context_expr)
                     self.expr(it.optional_vars)
                 self.body(b)
             case ast.Match(subject=subj, cases=cases):
                 self.ops['match…case'] += 1
+                self.wrapped(self.index(self.start(s)))
                 self.expr(subj)
                 for c in cases:
                     assert c.guard is None, 'guard не поддержан'
+                    self.wrapped(max(k for k, t in enumerate(self.toks)
+                                     if t.string == 'case' and t.start < self.start(c.pattern)))
                     self.pattern(c.pattern)
                     self.body(c.body)
             case ast.FunctionDef(body=b) | ast.ClassDef(body=b):

@@ -62,6 +62,37 @@ describe('вызовы и скобки', () => {
   });
 });
 
+describe('скобки, входящие в другой оператор', () => {
+  it('скобки вокруг условия if/while — часть оператора, а не ( )', () => {
+    assert.deepEqual(operators('if (a):\n    pass\n'), { [KEYS.if]: 1, pass: 1, [NL]: 1 });
+    assert.deepEqual(operators('while (a and b):\n    pass\n'), {
+      [KEYS.while]: 1,
+      and: 1,
+      pass: 1,
+      [NL]: 1,
+    });
+  });
+
+  it('скобки вокруг части условия — приоритетные, считаются', () => {
+    assert.equal(operators('if (a) and (b):\n    pass\n')['( )'], 2);
+    assert.equal(operators('if (n := f()) > 0:\n    pass\n')['( )'], 1);
+    assert.equal(operators('if not (a or b):\n    pass\n')['( )'], 1);
+  });
+
+  it('except (…), with (…), список импорта — скобки входят в оператор', () => {
+    const src = 'try:\n    pass\nexcept (A, B) as e:\n    pass\n';
+    assert.equal(operators(src)['( )'], undefined);
+    assert.equal(operators('with (open(p)):\n    pass\n')['( )'], undefined);
+    assert.equal(operators('from m import (a, b)')['( )'], undefined);
+    assert.equal(operators('match (cmd):\n    case (1):\n        pass\n')['( )'], undefined);
+  });
+
+  it('скобки тернарника и кортежа остаются ( )', () => {
+    assert.equal(operators('if a if (b) else c:\n    pass\n')['( )'], 1);
+    assert.equal(operators('pair = (a, b)')['( )'], 1);
+  });
+});
+
 describe('операторы-символы', () => {
   it('унарный и бинарный минус — один оператор (как «–» в PDF)', () => {
     assert.deepEqual(operators('y = -a - b'), { '=': 1, '-': 2, [NL]: 1 });

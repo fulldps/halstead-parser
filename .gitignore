@@ -25,3 +25,4 @@ dist-ssr
 
 # Local notes (not published)
 docs/
+__pycache__/
