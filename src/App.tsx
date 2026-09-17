@@ -54,7 +54,6 @@ function App() {
     <main className="app">
       <header className="app-header">
         <h1>Метрики Холстеда</h1>
-        <p>Анализ исходного кода на Python: 6 базовых и 3 расширенные метрики</p>
       </header>
 
       <section className="panel">
